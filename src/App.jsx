@@ -29,6 +29,22 @@ async function loadData() {
   };
 }
 
+// ─── SUPABASE: REALTIME ───────────────────────────────────────────────────────
+function subscribeToChanges(setData) {
+  supabase
+    .channel("db-changes")
+    .on("postgres_changes", { event: "*", schema: "public", table: "lists" }, () => {
+      loadData().then(setData);
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => {
+      loadData().then(setData);
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "completions" }, () => {
+      loadData().then(setData);
+    })
+    .subscribe();
+}
+
 // ─── SUPABASE: СОХРАНЕНИЕ ─────────────────────────────────────────────────────
 async function saveTaskToDB(task) {
   await supabase.from("tasks").upsert({
@@ -762,6 +778,7 @@ export default function App() {
       setData(d);
       setLoading(false);
     });
+    subscribeToChanges(setData);
   }, []);
 
   if (loading || !data) {
@@ -802,7 +819,7 @@ export default function App() {
           display: flex;
           flex-direction: column;
           height: 100dvh;
-          max-width: 100%;
+          max-width: 900px;
           margin: 0 auto;
         }
 
