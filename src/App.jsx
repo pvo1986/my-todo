@@ -352,7 +352,7 @@ function ListModal({ list, onSave, onDelete, onClose }) {
 }
 
 // ─── ЭЛЕМЕНТ ЗАДАЧИ ───────────────────────────────────────────────────────────
-function TaskItem({ task, done, accentColor, onToggle, onEdit, dateLabel, dateColor }) {
+function TaskItem({ task, done, accentColor, onToggle, onEdit, onDelete, dateLabel, dateColor }) {
   const rec = task.recurrence;
   let recLabel = "";
   if (rec?.type === "daily") recLabel = "каждый день";
@@ -383,7 +383,14 @@ function TaskItem({ task, done, accentColor, onToggle, onEdit, dateLabel, dateCo
           {task.note && <span className="meta-note">{task.note}</span>}
         </div>
       </div>
-      <button className="icon-btn task-edit" onClick={onEdit}><Icon name="edit" size={14} /></button>
+      <div className="task-actions">
+        <button className="icon-btn task-edit" onClick={onEdit}><Icon name="edit" size={14} /></button>
+        {onDelete && (
+          <button className="icon-btn task-delete" onClick={() => onDelete(task.id)}>
+            <Icon name="trash" size={14} />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -459,6 +466,7 @@ function TodayView({ data, setData }) {
               accentColor={list?.color || "#3b82f6"}
               onToggle={() => toggleTask(t)}
               onEdit={() => setEditingTask(t)}
+              onDelete={deleteTask}
               dateLabel={list?.name}
               dateColor={list?.color}
             />
@@ -478,6 +486,7 @@ function TodayView({ data, setData }) {
                   accentColor={list?.color || "#3b82f6"}
                   onToggle={() => toggleTask(t)}
                   onEdit={() => setEditingTask(t)}
+                  onDelete={deleteTask}
                   dateLabel={list?.name}
                   dateColor={list?.color}
                 />
@@ -615,6 +624,7 @@ function ListsView({ data, setData }) {
                   accentColor={curList.color}
                   onToggle={() => toggleTask(t)}
                   onEdit={() => setEditingTask(t)}
+                  onDelete={deleteTask}
                 />
               ))}
               {doneTasks.length > 0 && (
@@ -628,6 +638,7 @@ function ListsView({ data, setData }) {
                       accentColor={curList.color}
                       onToggle={() => toggleTask(t)}
                       onEdit={() => setEditingTask(t)}
+                      onDelete={deleteTask}
                     />
                   ))}
                 </>
@@ -692,6 +703,11 @@ function CalendarView({ data, setData }) {
     else newComp[key] = new Date().toISOString();
     setData({ ...data, completions: newComp });
     toggleCompletionInDB(task.id, dateStr, isDone);
+  }
+
+  function deleteTask(id) {
+    setData({ ...data, tasks: tasks.filter((t) => t.id !== id) });
+    deleteTaskFromDB(id);
   }
 
   function getDayStatus(dateStr) {
@@ -759,26 +775,17 @@ function CalendarView({ data, setData }) {
                 const list = getList(t.listId);
                 const done = isCompletedOn(t, selectedDay, completions);
                 return (
-                  <div
+                  <TaskItem
                     key={t.id}
-                    className={`task-item ${done ? "done" : ""}`}
-                    style={{ "--accent": list?.color || "#3b82f6" }}
-                  >
-                    <button
-                      className={`check-btn ${done ? "checked" : ""}`}
-                      onClick={() => toggleTask(t, selectedDay)}
-                    >
-                      {done && <Icon name="check" size={12} />}
-                    </button>
-                    <div className="task-body">
-                      <span className="task-title">{t.title}</span>
-                      {list && (
-                        <span className="meta-tag" style={{ background: list.color + "22", color: list.color }}>
-                          {list.name}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                    task={t}
+                    done={done}
+                    accentColor={list?.color || "#3b82f6"}
+                    onToggle={() => toggleTask(t, selectedDay)}
+                    onEdit={() => {}}
+                    onDelete={deleteTask}
+                    dateLabel={list?.name}
+                    dateColor={list?.color}
+                  />
                 );
               })}
             </div>
@@ -1032,8 +1039,11 @@ export default function App() {
         }
         .meta-note { font-size: 11px; color: var(--text3); }
 
-        .task-edit { opacity: 0; transition: opacity 0.15s; flex-shrink: 0; }
-        .task-item:hover .task-edit { opacity: 1; }
+        .task-edit { opacity: 0; transition: opacity 0.15s; }
+        .task-delete { opacity: 0; transition: opacity 0.15s; color: var(--red); }
+        .task-actions { display: flex; gap: 2px; flex-shrink: 0; }
+        .task-item:hover .task-edit,
+        .task-item:hover .task-delete { opacity: 1; }
 
         .section-divider {
           font-size: 11px;
