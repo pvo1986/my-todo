@@ -226,7 +226,10 @@ function TaskModal({ task, lists, onSave, onDelete, onClose }) {
               <button
                 key={r.v}
                 className={`rec-tab ${form.recurrence.type === r.v ? "active" : ""}`}
-                onClick={() => setRec("type", r.v)}
+                onClick={() => {
+                  setRec("type", r.v);
+                  if (r.v === "every_n_days" && !form.recurrence.n) setRec("n", 2);
+                }}
               >
                 {r.label}
               </button>
@@ -349,14 +352,14 @@ function ListModal({ list, onSave, onDelete, onClose }) {
 }
 
 // ─── ЭЛЕМЕНТ ЗАДАЧИ ───────────────────────────────────────────────────────────
-function TaskItem({ task, done, accentColor, onToggle, onEdit, dateLabel }) {
+function TaskItem({ task, done, accentColor, onToggle, onEdit, dateLabel, dateColor }) {
   const rec = task.recurrence;
   let recLabel = "";
   if (rec?.type === "daily") recLabel = "каждый день";
   else if (rec?.type === "weekly") {
     const DOW = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
     recLabel = (rec.days || []).map((d) => DOW[d]).join(", ");
-  } else if (rec?.type === "every_n_days") recLabel = `каждые ${rec.n} дн.`;
+  } else if (rec?.type === "every_n_days") recLabel = `каждые ${rec.n || 2} дн.`;
   else if (task.rollover) recLabel = "до выполнения";
 
   return (
@@ -367,7 +370,11 @@ function TaskItem({ task, done, accentColor, onToggle, onEdit, dateLabel }) {
       <div className="task-body">
         <span className="task-title">{task.title}</span>
         <div className="task-meta">
-          {dateLabel && <span className="meta-tag">{dateLabel}</span>}
+          {dateLabel && (
+            <span className="meta-tag" style={dateColor ? { background: dateColor + "22", color: dateColor } : {}}>
+              {dateLabel}
+            </span>
+          )}
           {recLabel && (
             <span className="meta-tag">
               <Icon name="repeat" size={10} />{recLabel}
@@ -453,6 +460,7 @@ function TodayView({ data, setData }) {
               onToggle={() => toggleTask(t)}
               onEdit={() => setEditingTask(t)}
               dateLabel={list?.name}
+              dateColor={list?.color}
             />
           );
         })}
@@ -471,6 +479,7 @@ function TodayView({ data, setData }) {
                   onToggle={() => toggleTask(t)}
                   onEdit={() => setEditingTask(t)}
                   dateLabel={list?.name}
+                  dateColor={list?.color}
                 />
               );
             })}
@@ -643,7 +652,7 @@ function ListsView({ data, setData }) {
 
       {(editingTask || newTask) && (
         <TaskModal
-          task={editingTask}
+          task={editingTask || { id: crypto.randomUUID(), title: "", listId: activeList, startDate: today(), recurrence: { type: "once" }, rollover: false, note: "" }}
           lists={lists}
           onSave={saveTask}
           onDelete={deleteTask}
@@ -663,7 +672,7 @@ function ListsView({ data, setData }) {
 }
 
 // ─── ВКЛАДКА: КАЛЕНДАРЬ ──────────────────────────────────────────────────────
-function CalendarView({ data }) {
+function CalendarView({ data, setData }) {
   const { lists, tasks, completions } = data;
   const [viewDate, setViewDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(today());
@@ -674,6 +683,16 @@ function CalendarView({ data }) {
   const dates = getDatesInMonth(year, month);
   const firstDow = new Date(year, month, 1).getDay();
   const offset = firstDow === 0 ? 6 : firstDow - 1;
+
+  function toggleTask(task, dateStr) {
+    const isDone = isCompletedOn(task, dateStr, completions);
+    const key = `${task.id}_${dateStr}`;
+    const newComp = { ...completions };
+    if (isDone) delete newComp[key];
+    else newComp[key] = new Date().toISOString();
+    setData({ ...data, completions: newComp });
+    toggleCompletionInDB(task.id, dateStr, isDone);
+  }
 
   function getDayStatus(dateStr) {
     const dayTasks = tasks.filter((t) => taskAppearsOnDate(t, dateStr));
@@ -742,12 +761,15 @@ function CalendarView({ data }) {
                 return (
                   <div
                     key={t.id}
-                    className={`task-item static ${done ? "done" : ""}`}
+                    className={`task-item ${done ? "done" : ""}`}
                     style={{ "--accent": list?.color || "#3b82f6" }}
                   >
-                    <div className={`check-btn ${done ? "checked" : ""}`}>
+                    <button
+                      className={`check-btn ${done ? "checked" : ""}`}
+                      onClick={() => toggleTask(t, selectedDay)}
+                    >
                       {done && <Icon name="check" size={12} />}
-                    </div>
+                    </button>
                     <div className="task-body">
                       <span className="task-title">{t.title}</span>
                       {list && (
@@ -1295,7 +1317,7 @@ export default function App() {
 
         {view === "today" && <TodayView data={data} setData={setData} />}
         {view === "lists" && <ListsView data={data} setData={setData} />}
-        {view === "calendar" && <CalendarView data={data} />}
+        {view === "calendar" && <CalendarView data={data} setData={setData} />}
       </div>
     </>
   );
