@@ -85,7 +85,8 @@ async function toggleCompletionInDB(taskId, dateStr, isCurrentlyDone) {
 
 // ─── ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ──────────────────────────────────────────────────
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function formatDate(d) {
@@ -100,10 +101,13 @@ function getDayOfWeek(dateStr) {
 
 function getDatesInMonth(year, month) {
   const dates = [];
-  const d = new Date(year, month, 1);
-  while (d.getMonth() === month) {
-    dates.push(d.toISOString().slice(0, 10));
-    d.setDate(d.getDate() + 1);
+  let day = 1;
+  while (true) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const d = new Date(dateStr + "T12:00:00");
+    if (d.getMonth() !== month) break;
+    dates.push(dateStr);
+    day++;
   }
   return dates;
 }
@@ -701,7 +705,7 @@ function CalendarView({ data, setData }) {
   const month = viewDate.getMonth();
   const monthNames = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
   const dates = getDatesInMonth(year, month);
-  const firstDow = new Date(year, month, 1).getDay();
+  const firstDow = new Date(`${year}-${String(month + 1).padStart(2, "0")}-01T12:00:00`).getDay();
   const offset = firstDow === 0 ? 6 : firstDow - 1;
 
   function toggleTask(task, dateStr) {
